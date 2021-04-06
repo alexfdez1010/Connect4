@@ -208,8 +208,7 @@ class Connect4(Env):
 
     def __heuristic(self) -> float:
 
-        return self.__calculate_heuristic(self.id_player) \
-               - 2 * self.__calculate_heuristic(self.agent.get_id_player())
+        return -self.__calculate_heuristic(self.agent.get_id_player())
 
     def __calculate_heuristic(self, id_player: int) -> float:
 

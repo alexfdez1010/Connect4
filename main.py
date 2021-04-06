@@ -1,8 +1,5 @@
 from stable_baselines3.a2c import A2C
-from stable_baselines3.a2c.policies import ActorCriticPolicy
-
 from stable_baselines3.dqn import DQN
-from stable_baselines3.dqn.policies import MlpPolicy
 
 from environment import Connect4, WINNING_REWARD, DRAWING_REWARD, NUM_COL
 from agent import Human, AI
@@ -10,13 +7,11 @@ from train import NAME_SAVE_DQN, NAME_SAVE_A2C, train
 
 from os import listdir
 
-FORCE_TRAIN = True
-
 
 def play(human_play=True, use_dqn_model=True):
     if human_play:
 
-        env = Connect4(Human(2,NUM_COL))
+        env = Connect4(Human(2, NUM_COL))
         if use_dqn_model:
             if NAME_SAVE_DQN + ".zip" not in listdir():
                 train(150, 500)
@@ -30,8 +25,6 @@ def play(human_play=True, use_dqn_model=True):
 
         done = False
 
-        reward = 0
-
         while not done:
             action = model.predict(obv)[0]
 
@@ -39,6 +32,7 @@ def play(human_play=True, use_dqn_model=True):
 
             obv, reward, done, info = env.step(action)
 
+        env.render()
         if reward == WINNING_REWARD:
             print("Sorry, you have lost")
 
@@ -55,7 +49,7 @@ def play(human_play=True, use_dqn_model=True):
 
         env = Connect4(None)
 
-        agent_dqn = AI(2,NUM_COL,model = DQN.load(NAME_SAVE_DQN + ".zip", env=env))
+        agent_dqn = AI(2, NUM_COL, model=DQN.load(NAME_SAVE_DQN + ".zip", env=env))
         env.change_agent(agent_dqn)
 
         model_a2c = A2C.load(NAME_SAVE_A2C + ".zip", env)
@@ -64,13 +58,13 @@ def play(human_play=True, use_dqn_model=True):
 
         done = False
 
-        reward = 0
-
         while not done:
             env.render()
             action = model_a2c.predict(obv)[0]
 
             obv, reward, done, info = env.step(action)
+
+        env.render()
 
         if reward == WINNING_REWARD:
             print("The winner is A2C")

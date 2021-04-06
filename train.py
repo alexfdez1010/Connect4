@@ -8,14 +8,15 @@ from environment import Connect4, NUM_COL
 from agent import AI
 
 from os import listdir
+from sys import argv
 
 NAME_SAVE_DQN: str = "DQN_Connect4"
 NAME_SAVE_A2C: str = "A2C_Connect4"
 
 
-def train(num_epochs: int = 250, num_steps: int = 1000):
-    env_dqn = Connect4(None)
-    env_a2c = Connect4(None)
+def train(num_epochs: int = 250, num_steps: int = 1000, use_heuristic: bool = False):
+    env_dqn = Connect4(None, use_heuristic=use_heuristic)
+    env_a2c = Connect4(None, use_heuristic=use_heuristic)
 
     if NAME_SAVE_DQN + ".zip" in listdir():
         model_dqn = DQN.load(NAME_SAVE_DQN + ".zip", env_dqn)
@@ -34,13 +35,18 @@ def train(num_epochs: int = 250, num_steps: int = 1000):
     env_a2c.change_agent(agent_dqn)
 
     for i in range(num_epochs):
+        print(f"Executing epoch {i + 1}/{num_epochs}")
         model_dqn.learn(num_steps)
         model_dqn.save(NAME_SAVE_DQN)
         model_a2c.learn(num_steps)
         model_a2c.save(NAME_SAVE_A2C)
 
-        print(f"The epoch {i + 1} has finished")
-
 
 if __name__ == '__main__':
-    train(250, 1000)
+
+    if len(argv) > 1:
+        epochs = int(argv[1])
+        steps = int(argv[2])
+        train(epochs, steps, use_heuristic=True)
+    else:
+        train(use_heuristic=True)
