@@ -3,15 +3,52 @@ from stable_baselines3.a2c.policies import ActorCriticPolicy
 
 from stable_baselines3.dqn import DQN
 from stable_baselines3.dqn.policies import MlpPolicy
+from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 
 from environment import Connect4, NUM_COL
 from agent import AI
+from gym import spaces
 
 from os import listdir
 from sys import argv
 
+import torch.nn as nn
+from torch import no_grad, as_tensor, Tensor
+
 NAME_SAVE_DQN: str = "DQN_Connect4"
 NAME_SAVE_A2C: str = "A2C_Connect4"
+
+
+class CustomCNN(BaseFeaturesExtractor):
+
+    def __init__(self, observation_space: spaces.Box, features_dim: int = 256):
+        super(CustomCNN, self).__init__(observation_space, features_dim)
+        n_input_channels = observation_space[0]
+        self.cnn = nn.Sequential(
+            nn.Conv2d(n_input_channels, 256, kernel_size=2, stride=1, padding=0),
+            nn.ReLU(),
+            nn.Conv2d(256, 512, kernel_size=2, stride=1, padding=0),
+            nn.ReLU(),
+            nn.Flatten()
+        )
+
+        with no_grad():
+            n_flatten = self.cnn(
+                as_tensor(observation_space.sample()[None]).float()
+            ).shape[1]
+
+        self.linear = nn.Sequential(nn.Linear(n_flatten, features_dim),
+                                    nn.ReLU()
+                                    )
+
+    def forward(self, observations: Tensor):
+        return self.linear(self.cnn(observations))
+
+
+policy_kwargs = dict(
+    feature_extractor_class=CustomCNN,
+    feature_extractor_kwargs=dict(feature_dim=128)
+)
 
 
 def train(num_epochs: int = 250, num_steps: int = 1000, use_heuristic: bool = False):
@@ -47,6 +84,6 @@ if __name__ == '__main__':
     if len(argv) > 1:
         epochs = int(argv[1])
         steps = int(argv[2])
-        train(epochs, steps, use_heuristic=True)
+        train(epochs, steps, use_heuristic=False)
     else:
-        train(use_heuristic=True)
+        train(use_heuristic=False)
