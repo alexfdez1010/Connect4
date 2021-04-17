@@ -3,7 +3,6 @@ from random import randint
 import numpy as np
 from gym import Env
 from gym.spaces import Discrete, Box
-
 from agent import Human
 
 NUM_COL: int = 7  # Constant to determinate the number of columns
@@ -28,9 +27,10 @@ class Connect4(Env):
 
         self.agent = agent
         self.use_heuristic = use_heuristic
+        self.human = isinstance(agent, Human)
 
         self.action_space = Discrete(NUM_COL)
-        self.observation_space = Box(low=0, high=2, shape=(NUM_COL * NUM_ROW + 1,), dtype=np.uint8)
+        self.observation_space = Box(low=0, high=2, shape=(4, NUM_ROW, NUM_COL), dtype=np.uint8)
 
         self.id_player = None
         self.state = None
@@ -65,7 +65,7 @@ class Connect4(Env):
         info = {"id_player": self.id_player, "id_agent": self.agent.get_id_player()}
         if self.__valid_move(action):
             self.__update_state(action, self.id_player)
-            if isinstance(self.agent, Human):
+            if self.human:
                 self.render()
             if self.__is_finish(self.id_player):
                 reward = WINNING_REWARD
@@ -95,20 +95,20 @@ class Connect4(Env):
     # It will return the first observation/state
     # This function must be called before using step in a new episode
     def reset(self) -> np.array:
-        self.state = np.zeros(NUM_ROW * NUM_COL + 1)
-        self.id_player = randint(1, 2)
+        self.state = np.zeros(shape=(4, NUM_ROW, NUM_COL))
+        self.id_player = randint(0, 1)
 
-        self.state[-1] = self.id_player
-        self.agent.set_id_player((self.id_player & 1) + 1)
+        self.state[0] = self.id_player
+        self.agent.set_id_player((self.id_player + 1) & 1)
 
-        if isinstance(self.agent, Human):
+        if self.human:
 
             if self.agent.get_id_player() == 1:
                 print("You have the O pieces")
             else:
                 print("You have the X pieces")
 
-        if self.id_player == 2:
+        if self.id_player == 1:
             action = self.agent.action(self.state)
             self.__update_state(action, self.agent.get_id_player())
 
@@ -145,66 +145,45 @@ class Connect4(Env):
     # @agent : new agent
     def change_agent(self, agent):
         self.agent = agent
+        self.human = isinstance(agent, Human)
 
     def __update_state(self, action: int, id_player: int) -> None:
 
-        j = (NUM_ROW - 1) * NUM_COL + action
+        j = NUM_ROW - 1
 
-        while j >= 0 and self.state[j] != 0:
-            j -= NUM_COL
+        while j >= 0 and self.state[1][j][action] != 0:
+            j -= 1
 
-        self.state[j] = id_player
-        self.state[-1] = (id_player & 1) + 1
+        self.state[id_player + 2][j][action] = 1
+        self.state[0] = (id_player + 1) & 1
 
     def __valid_move(self, action):
-        if self.state[action] != 0:
+        if self.state[1, 0, action] != 0:
             return False
         else:
             return True
 
-    def __is_finish(self, id_player) -> bool:
+    def __is_finish(self, id_player: int, last_move: tuple) -> bool:
 
-        for i in range(NUM_ROW):
-            for j in range(NUM_COL):
+        for i in range(-1, 2, 1):
+            for j in range(-1, 2, 1):
 
-                if self.state[i * NUM_COL + j] == id_player:
+                count = 0
+                inc_r, inc_c = i, j
+                r, c = (last_move[0] + inc_r), (last_move[1] + inc_c)
 
-                    count = 0
-                    r, c = i + 1, j
+                while 0 <= r <= NUM_ROW and 0 <= c <= NUM_COL and self.state[id_player + 2]:
+                    count += 1
+                    r += inc_r
+                    c += inc_c
 
-                    while r < NUM_ROW and self.state[r * NUM_COL + c] == id_player:
-                        count += 1
-                        r += 1
-
-                    if count >= 3:
-                        return True
-
-                    count = 0
-                    r, c = i + 1, j + 1
-
-                    while r < NUM_ROW and c < NUM_COL and self.state[r * NUM_COL + c] == id_player:
-                        count += 1
-                        r += 1
-                        c += 1
-
-                    if count >= 3:
-                        return True
-
-                    count = 0
-                    r, c = i, j + 1
-
-                    while c < NUM_COL and self.state[r * NUM_COL + c] == id_player:
-                        count += 1
-                        c += 1
-
-                    if count >= 3:
-                        return True
-
+                if count >= 3:
+                    return True
         return False
 
     def __is_draw(self):
 
-        return all(self.state != 0)
+        return (self.state[1] == 0).all()
 
     def __heuristic(self) -> float:
 
